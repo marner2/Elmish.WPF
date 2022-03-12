@@ -6,10 +6,11 @@ open Microsoft.Extensions.Logging.Abstractions
 open Elmish
 
 
-type WpfProgram<'model, 'msg> =
+type WpfProgram<'model, 'msg, 'viewModel> =
   internal {
     ElmishProgram: Program<unit, 'model, 'msg, unit>
-    Bindings: Binding<'model, 'msg> list
+    CreateViewModel: ViewModelArgs<'model,'msg> -> 'viewModel
+    UpdateViewModel: 'viewModel * 'model -> unit
     LoggerFactory: ILoggerFactory
     ErrorHandler: string -> exn -> unit
     /// Only log calls that take at least this many milliseconds. Default 1.
@@ -21,9 +22,10 @@ type WpfProgram<'model, 'msg> =
 module WpfProgram =
 
 
-  let private create getBindings program =
+  let private create (getBindings: unit -> Binding<'model,'msg> list) program =
     { ElmishProgram = program
-      Bindings = getBindings ()
+      CreateViewModel = fun args -> ViewModel<'model,'msg>(args, getBindings ())
+      UpdateViewModel = fun (vm,m) -> vm.UpdateModel m
       LoggerFactory = NullLoggerFactory.Instance
       ErrorHandler = fun _ _ -> ()
       PerformanceLogThreshold = 1 }
@@ -52,7 +54,7 @@ module WpfProgram =
   /// you control app/window instantiation, runWindowWithConfig might be a better option.
   let startElmishLoop
       (element: FrameworkElement)
-      (program: WpfProgram<'model, 'msg>) =
+      (program: WpfProgram<'model, 'msg, 'viewModel>) =
     let mutable viewModel = None
 
     let updateLogger = program.LoggerFactory.CreateLogger("Elmish.WPF.Update")
@@ -84,11 +86,11 @@ module WpfProgram =
                   nameChain = "main"
                   log = bindingsLogger
                   logPerformance = performanceLogger } }
-          let vm = ViewModel<'model, 'msg>(args, program.Bindings)
+          let vm = program.CreateViewModel args
           element.DataContext <- vm
           viewModel <- Some vm
       | Some vm ->
-          vm.UpdateModel model
+          program.UpdateViewModel (vm, model)
 
     let cmdDispatch (innerDispatch: Dispatch<'msg>) : Dispatch<'msg> =
       dispatch <- innerDispatch
