@@ -5,6 +5,7 @@ open System.Windows
 
 open Elmish
 open Microsoft.Extensions.Logging
+open Microsoft.Extensions.Logging.Abstractions
 
 
 type LoggingViewModelArgs =
@@ -23,6 +24,12 @@ module LoggingViewModelArgs =
 
   let map nameChain v = { v with nameChain = nameChain }
 
+  let fake =
+    { performanceLogThresholdMs = 1
+      log = NullLogger.Instance
+      logPerformance = NullLogger.Instance
+      nameChain = "" }
+
 type ViewModelArgs<'model, 'msg> =
   { initialModel: 'model
     dispatch: 'msg -> unit
@@ -38,6 +45,11 @@ module ViewModelArgs =
     { initialModel = v.initialModel |> mapModel
       dispatch = mapMsg >> v.dispatch
       loggingArgs = v.loggingArgs }
+
+  let fake initialModel =
+    { initialModel = initialModel
+      dispatch = ignore
+      loggingArgs = LoggingViewModelArgs.fake }
 
 
 type internal OneWayData<'model> =
