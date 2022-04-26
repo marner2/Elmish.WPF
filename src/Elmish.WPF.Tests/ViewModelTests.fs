@@ -32,7 +32,7 @@ type internal TestVm<'model, 'msg>(model, bindings) as this =
   let ecTriggers = ConcurrentDictionary<string, int>()
   let ccTriggers = ConcurrentDictionary<string, NotifyCollectionChangedEventArgs list>()
   let cecTriggers = ConcurrentDictionary<string, int>()
-  let dispatchMsgs = ResizeArray<'msg> ()
+  let dispatchMsgs = ResizeArray<'msg>()
 
 
   do

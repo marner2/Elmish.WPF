@@ -11,6 +11,351 @@ open System.Windows
 open FSharp.Quotations
 open FSharp.Quotations.Patterns
 
+type TypedBindingData<'model, 'msg, 'bindingModel, 'bindingMsg, 'bindingViewModel, 'id when 'id : equality> =
+  internal
+  | TypedOneWayData of OneWayData<'model, 'bindingModel>
+  | TypedOneWayToSourceData of OneWayToSourceData<'model, 'msg, 'bindingModel>
+  | TypedOneWaySeqLazyData of OneWaySeqLazyData<'model, 'bindingModel, 'bindingViewModel, 'id>
+  | TypedTwoWayData of TwoWayData<'model, 'msg, 'bindingModel>
+  | TypedCmdData of CmdData<'model, 'msg>
+  | TypedSubModelData of SubModelData<'model, 'msg, 'bindingModel, 'bindingMsg, 'bindingViewModel>
+  | TypedSubModelWinData of SubModelWinData<'model, 'msg, 'bindingModel, 'bindingMsg, 'bindingViewModel>
+  | TypedSubModelSeqUnkeyedData of SubModelSeqUnkeyedData<'model, 'msg, 'bindingModel, 'bindingMsg, 'bindingViewModel>
+  | TypedSubModelSeqKeyedData of SubModelSeqKeyedData<'model, 'msg, 'bindingModel, 'bindingMsg, 'bindingViewModel, 'id>
+  | TypedSubModelSelectedItemData of SubModelSelectedItemData<'model, 'msg, 'id>
+
+type ViewModelBaseHelper<'model, 'msg, 'viewModel when 'viewModel :> ViewModelBaseBase>(baseBase: 'viewModel, args: ViewModelArgs<'model, 'msg>) as this =
+
+  let { initialModel = initialModel
+        dispatch = dispatch
+        loggingArgs = loggingArgs
+      } = args
+
+  let { log = log
+        nameChain = nameChain
+      } = loggingArgs
+
+  let mutable currentModel = initialModel
+  let mutable getBindings = Dictionary<String, VmBinding<'model, 'msg>>()
+  let mutable setBindings = Dictionary<String, VmBinding<'model, 'msg>>()
+
+  let getFunctionsForSubModelSelectedItem name =
+    getBindings
+    |> Dictionary.tryFind name
+    |> function
+      | Some b ->
+        match FuncsFromSubModelSeqKeyed().Recursive(b) with
+        | Some x ->
+          Some x
+        | None ->
+          log.LogError("SubModelSelectedItem binding referenced binding {SubModelSeqBindingName} but it is not a SubModelSeq binding", name)
+          None
+      | None ->
+        log.LogError("SubModelSelectedItem binding referenced binding {SubModelSeqBindingName} but no binding was found with that name", name)
+        None
+
+  let getBinding name =
+    let ret: OneWayData<'model, 'model> = { Get = id }
+    ret |> TypedOneWayData
+
+  let setBinding name =
+    let ret: OneWayToSourceData<'model, 'msg, 'msg> = { Set = (fun m _ -> m) }
+    ret |> TypedOneWayToSourceData
+
+  let cmdBinding name =
+    let ret: CmdData<'model, 'msg> =
+      { Exec = (fun _ _ -> ValueNone)
+        CanExec = (fun _ _ -> false)
+        AutoRequery = false }
+    ret |> TypedCmdData
+
+  let subModelBinding name =
+    let ret: SubModelData<'model, 'msg, 'model, 'msg, unit> =
+      { GetModel = id >> ValueSome
+        CreateViewModel = ignore
+        UpdateViewModel = ignore
+        ToMsg = (fun _ msg -> msg) }
+    ret |> TypedSubModelData
+
+  let initializeGetBindingIfNew name (getter: 'model -> 'a) =
+    if getBindings.ContainsKey name |> not then
+      let bindingData: OneWayData<'model, 'a> =
+        { Get = getter }
+      let bindingData2: OneWayData<'model, obj> =
+        { Get = bindingData.Get >> box }
+      let wrappedBindingData = bindingData2 |> OneWayData |> BaseBindingData
+      let binding =
+        Initialize(loggingArgs, name, getFunctionsForSubModelSelectedItem)
+          .Recursive(initialModel, dispatch, (fun () -> currentModel), wrappedBindingData)
+      do binding |> Option.iter (fun binding -> getBindings.Add(name, binding))
+    let binding = Get(nameChain).Recursive(currentModel, getBindings.Item name)
+    match binding with
+    | Ok o -> o |> unbox<'a> |> ValueSome
+    | Error error -> log.LogError("Wrong binding type found for {name}, should be BaseVmBinding, found {foundBinding}", name, error); ValueNone
+      
+  let initializeSetBindingIfNew name (setter: 'model -> 'msg) =
+    if setBindings.ContainsKey name |> not then
+      let bindingData: OneWayToSourceData<'model, 'msg, 'model -> 'msg> =
+        { Set = (fun setter -> setter) }
+      let bindingData2: OneWayToSourceData<'model, 'msg, obj> =
+        { Set = unbox<'model -> 'msg> >> bindingData.Set }
+      let wrappedBindingData = bindingData2 |> OneWayToSourceData |> BaseBindingData
+      let binding =
+        Initialize(loggingArgs, name, getFunctionsForSubModelSelectedItem)
+          .Recursive(initialModel, dispatch, (fun () -> currentModel), wrappedBindingData)
+      do binding |> Option.iter (fun binding -> setBindings.Add(name, binding))
+    let didSet = Set(setter |> box).Recursive(currentModel, setBindings.Item name)
+    if not didSet then
+      log.LogError("Failed to set binding {name}", name)
+
+  let initializeCmdBindingIfNew name exec canExec autoRequery =
+    if getBindings.ContainsKey name |> not then
+      let bindingData =
+        { Exec = exec
+          CanExec = canExec
+          AutoRequery = autoRequery }
+      let wrappedBindingData = bindingData |> CmdData |> BaseBindingData
+      let binding =
+        Initialize(loggingArgs, name, getFunctionsForSubModelSelectedItem)
+          .Recursive(initialModel, dispatch, (fun () -> currentModel), wrappedBindingData)
+      do binding |> Option.iter (fun binding -> getBindings.Add(name, binding))
+      
+    let binding = Get(nameChain).Recursive(currentModel, getBindings.Item name)
+    match binding with
+    | Ok o -> o |> unbox<ICommand> |> Some
+    | Error error -> log.LogError("Wrong binding type found for {name}, should be BaseVmBinding, found {foundBinding}", name, error); None
+
+  let initializeSubModelBindingIfNew
+    name
+    (getModel: 'model -> 'bindingModel voption)
+    (toMsg: 'model -> 'bindingMsg -> 'msg)
+    (createViewModel: ViewModelArgs<'bindingModel, 'bindingMsg> -> 'bindingViewModel)
+    (updateViewModel: 'bindingViewModel * 'bindingModel -> unit) =
+    if getBindings.ContainsKey name |> not then
+      let bindingData =
+        { GetModel = getModel
+          ToMsg = toMsg
+          CreateViewModel = createViewModel
+          UpdateViewModel = updateViewModel }
+      let bindingData2 = Binding.SubModel.mapMinorTypes box box box unbox unbox unbox bindingData
+      let wrappedBindingData = bindingData2 |> SubModelData |> BaseBindingData
+      let binding =
+        Initialize(loggingArgs, name, getFunctionsForSubModelSelectedItem)
+          .Recursive(initialModel, dispatch, (fun () -> currentModel), wrappedBindingData)
+      do binding |> Option.iter (fun binding -> getBindings.Add(name, binding))
+      
+    let binding = Get(nameChain).Recursive(currentModel, getBindings.Item name)
+    match binding with
+    | Ok o -> o |> unbox<'bindingViewModel> |> Some
+    | Error error -> log.LogError("Wrong binding type found for {name}, should be BaseVmBinding, found {foundBinding}", name, error); None
+
+  let initializeSubModelSeqUnkeyedBindingIfNew
+    name
+    (getModels: 'model -> 'bindingModel seq)
+    (toMsg: 'model -> int * 'bindingMsg -> 'msg)
+    (createViewModel: ViewModelArgs<'bindingModel, 'bindingMsg> -> 'bindingViewModel)
+    (updateViewModel: 'bindingViewModel * 'bindingModel -> unit) =
+    if getBindings.ContainsKey name |> not then
+      let bindingData =
+        { GetModels = getModels
+          ToMsg = toMsg
+          CreateViewModel = createViewModel
+          CreateCollection = ObservableCollection >> CollectionTarget.create
+          UpdateViewModel = updateViewModel }
+      let bindingData2 = BindingData.SubModelSeqUnkeyed.box bindingData
+      let wrappedBindingData = bindingData2 |> SubModelSeqUnkeyedData |> BaseBindingData
+      let binding =
+        Initialize(loggingArgs, name, getFunctionsForSubModelSelectedItem)
+          .Recursive(initialModel, dispatch, (fun () -> currentModel), wrappedBindingData)
+      do binding |> Option.iter (fun binding -> getBindings.Add(name, binding))
+
+    let binding = Get(nameChain).Recursive(currentModel, getBindings.Item name)
+    match binding with
+    | Ok o -> o |> unbox<ObservableCollection<'bindingViewModel>> |> Some
+    | Error error -> log.LogError("Wrong binding type found for {name}, should be BaseVmBinding, found {foundBinding}", name, error); None
+
+  let initializeSubModelSeqKeyedBindingIfNew
+    name
+    (getModels: 'model -> 'bindingModel seq)
+    (getKey: 'bindingModel -> 'a)
+    (toMsg: 'model -> 'a * 'bindingMsg -> 'msg)
+    (createViewModel: ViewModelArgs<'bindingModel, 'bindingMsg> -> 'bindingViewModel)
+    (updateViewModel: 'bindingViewModel * 'bindingModel -> unit)
+    (getUnderlyingModel: 'bindingViewModel -> 'bindingModel) =
+    if getBindings.ContainsKey name |> not then
+      let bindingData =
+        { GetSubModels = getModels
+          ToMsg = toMsg
+          CreateViewModel = createViewModel
+          CreateCollection = ObservableCollection >> CollectionTarget.create
+          GetUnderlyingModel = getUnderlyingModel
+          UpdateViewModel = updateViewModel
+          GetId = getKey }
+      let bindingData2 = BindingData.SubModelSeqKeyed.box bindingData
+      let wrappedBindingData = bindingData2 |> SubModelSeqKeyedData |> BaseBindingData
+      let binding =
+        Initialize(loggingArgs, name, getFunctionsForSubModelSelectedItem)
+          .Recursive(initialModel, dispatch, (fun () -> currentModel), wrappedBindingData)
+      do binding |> Option.iter (fun binding -> getBindings.Add(name, binding))
+
+    let binding = Get(nameChain).Recursive(currentModel, getBindings.Item name)
+    match binding with
+    | Ok o -> o |> unbox<ObservableCollection<'bindingViewModel>> |> Some
+    | Error error -> log.LogError("Wrong binding type found for {name}, should be BaseVmBinding, found {foundBinding}", name, error); None
+    
+  let initializeSubModelWinBindingIfNew
+    name
+    (getState: 'model -> WindowState<'bindingModel>)
+    (toMsg: 'model -> 'bindingMsg -> 'msg)
+    (getWindow: 'model -> Elmish.Dispatch<'msg> -> Window)
+    (isModal: bool)
+    (onCloseRequested: 'model -> 'msg voption)
+    (createViewModel: ViewModelArgs<'bindingModel, 'bindingMsg> -> 'bindingViewModel)
+    (updateViewModel: 'bindingViewModel * 'bindingModel -> unit) =
+    if getBindings.ContainsKey name |> not then
+      let bindingData: SubModelWinData<'model, 'msg, 'bindingModel, 'bindingMsg, 'bindingViewModel> =
+        { GetState = getState
+          ToMsg = toMsg
+          CreateViewModel = createViewModel
+          UpdateViewModel = updateViewModel
+          GetWindow = getWindow
+          IsModal = isModal
+          OnCloseRequested = onCloseRequested }
+      let bindingData2 = BindingData.SubModelWin.mapMinorTypes box box box unbox unbox unbox bindingData
+      let wrappedBindingData = bindingData2 |> SubModelWinData |> BaseBindingData
+      let binding =
+        Initialize(loggingArgs, name, getFunctionsForSubModelSelectedItem)
+          .Recursive(initialModel, dispatch, (fun () -> currentModel), wrappedBindingData)
+      do binding |> Option.iter (fun binding -> getBindings.Add(name, binding))
+      
+    let binding = Get(nameChain).Recursive(currentModel, getBindings.Item name)
+    match binding with
+    | Ok o -> o |> unbox<'bindingViewModel> |> Some
+    | Error error -> log.LogError("Wrong binding type found for {name}, should be BaseVmBinding, found {foundBinding}", name, error); None
+    
+  let initializeGetSubModelSelectedItemBindingIfNew
+    name
+    (get: 'model -> 'a voption)
+    (seqBinding: Expr<ObservableCollection<'bindingViewModel>>) =
+    if getBindings.ContainsKey name |> not then
+      let subModelSeqBindingName =
+        let rec watwat b =
+          match b with
+          | PropertyGet(Some _, propInfo, [ ]) -> propInfo.Name
+          | x -> failwithf "Expected a property getter, got a %A" x
+        watwat seqBinding
+      let _ = eval seqBinding
+      let bindingData =
+        { Get = get
+          Set = (fun _ _ -> failwith "should not be set")
+          SubModelSeqBindingName = subModelSeqBindingName }
+      let bindingData2 =
+        { Get = bindingData.Get >> ValueOption.map box
+          Set = ValueOption.map unbox >> bindingData.Set
+          SubModelSeqBindingName = bindingData.SubModelSeqBindingName }
+      let wrappedBindingData = bindingData2 |> SubModelSelectedItemData |> BaseBindingData
+      let binding =
+        Initialize(loggingArgs, name, getFunctionsForSubModelSelectedItem)
+          .Recursive(initialModel, dispatch, (fun () -> currentModel), wrappedBindingData)
+      do binding |> Option.iter (fun binding -> getBindings.Add(name, binding))
+
+    let binding = Get(nameChain).Recursive(currentModel, getBindings.Item name)
+    match binding with
+    | Ok o -> o |> unbox<'bindingViewModel> |> Some
+    | Error error -> log.LogError("Wrong binding type found for {name}, should be BaseVmBinding, found {foundBinding}", name, error); None
+    
+  let initializeSetSubModelSelectedItemBindingIfNew
+    name
+    (set: 'a voption -> 'model -> 'msg)
+    (seqBinding: Expr<ObservableCollection<'bindingViewModel>>)
+    (v: 'bindingViewModel)=
+    if setBindings.ContainsKey name |> not then
+      let subModelSeqBindingName =
+        let rec watwat b =
+          match b with
+          | PropertyGet(Some _, propInfo, [ ]) -> propInfo.Name
+          | x -> failwithf "Expected a property getter, got a %A" x
+        watwat seqBinding
+      let _ = eval seqBinding
+      let bindingData =
+        { Get = (fun _ -> failwith "should not get")
+          Set = set
+          SubModelSeqBindingName = subModelSeqBindingName }
+      let bindingData2 =
+        { Get = bindingData.Get >> ValueOption.map box
+          Set = ValueOption.map unbox >> bindingData.Set
+          SubModelSeqBindingName = bindingData.SubModelSeqBindingName }
+      let wrappedBindingData = bindingData2 |> SubModelSelectedItemData |> BaseBindingData
+      let binding =
+        Initialize(loggingArgs, name, getFunctionsForSubModelSelectedItem)
+          .Recursive(initialModel, dispatch, (fun () -> currentModel), wrappedBindingData)
+      do binding |> Option.iter (fun binding -> setBindings.Add(name, binding))
+    let didSet = Set(v).Recursive(currentModel, setBindings.Item name)
+    if not didSet then
+      log.LogError("Failed to set binding {name}", name)
+  
+
+  member internal _.CurrentModel : 'model = currentModel
+
+  member internal _.UpdateModel (newModel: 'model) : unit =
+    let eventsToRaise =
+      getBindings
+      |> Seq.collect (fun (Kvp (name, binding)) -> Update(loggingArgs, name).Recursive(currentModel, newModel, dispatch, binding))
+      |> Seq.toList
+    currentModel <- newModel
+    baseBase.RaiseEvents eventsToRaise
+
+and ViewModelBaseBase(loggingArgs: LoggingViewModelArgs, x) as this =
+
+  let { log = log
+        nameChain = nameChain
+      } = loggingArgs
+
+  let propertyChanged = Event<PropertyChangedEventHandler, PropertyChangedEventArgs>()
+  let errorsChanged = DelegateEvent<EventHandler<DataErrorsChangedEventArgs>>()
+
+  let raisePropertyChanged name =
+    log.LogTrace("[{BindingNameChain}] PropertyChanged {BindingName}", nameChain, name)
+    propertyChanged.Trigger(this, PropertyChangedEventArgs name)
+  let raiseCanExecuteChanged (cmd: Command) =
+    cmd.RaiseCanExecuteChanged ()
+  let raiseErrorsChanged name =
+    log.LogTrace("[{BindingNameChain}] ErrorsChanged {BindingName}", nameChain, name)
+    errorsChanged.Trigger([| this; box <| DataErrorsChangedEventArgs name |])
+
+  let mutable validationErrors = Dictionary<String, String list ref>()
+
+  member _.WAT = ViewModelBaseHelper(this, x).CurrentModel
+
+  member internal _.RaiseEvents(eventsToRaise: UpdateData list) =
+    eventsToRaise
+    |> Seq.iter (function
+      | ErrorsChanged name -> name |> raiseErrorsChanged
+      | PropertyChanged name -> name |> raisePropertyChanged
+      | CanExecuteChanged cmd -> cmd |> raiseCanExecuteChanged)
+
+  interface INotifyPropertyChanged with
+    [<CLIEvent>]
+    member _.PropertyChanged = propertyChanged.Publish
+
+  interface INotifyDataErrorInfo with
+    [<CLIEvent>]
+    member _.ErrorsChanged = errorsChanged.Publish
+    member _.HasErrors =
+      // WPF calls this too often, so don't log https://github.com/elmish/Elmish.WPF/issues/354
+      validationErrors
+      |> Seq.map (fun (Kvp(_, errors)) -> errors.Value)
+      |> Seq.filter (not << List.isEmpty)
+      |> (not << Seq.isEmpty)
+    member _.GetErrors name =
+      let name = name |> Option.ofObj |> Option.defaultValue "<null>" // entity-level errors are being requested when given null or ""  https://docs.microsoft.com/en-us/dotnet/api/system.componentmodel.inotifydataerrorinfo.geterrors#:~:text=null%20or%20Empty%2C%20to%20retrieve%20entity-level%20errors
+      log.LogTrace("[{BindingNameChain}] GetErrors {BindingName}", nameChain, name)
+      validationErrors
+      |> IReadOnlyDictionary.tryFind name
+      |> Option.map (fun errors -> errors.Value)
+      |> Option.defaultValue []
+      |> (fun x -> upcast x)
+
 
 type [<AllowNullLiteral>] ViewModelBase<'model,'msg>
       ( args: ViewModelArgs<'model, 'msg>,
@@ -42,6 +387,7 @@ type [<AllowNullLiteral>] ViewModelBase<'model,'msg>
   let raiseErrorsChanged name =
     log.LogTrace("[{BindingNameChain}] ErrorsChanged {BindingName}", nameChain, name)
     errorsChanged.Trigger([| getSender (); box <| DataErrorsChangedEventArgs name |])
+
   let getFunctionsForSubModelSelectedItem name =
     getBindings
     |> Dictionary.tryFind name
@@ -57,11 +403,14 @@ type [<AllowNullLiteral>] ViewModelBase<'model,'msg>
         log.LogError("SubModelSelectedItem binding referenced binding {SubModelSeqBindingName} but no binding was found with that name", name)
         None
 
+
   let initializeGetBindingIfNew name (getter: 'model -> 'a) =
     if getBindings.ContainsKey name |> not then
-      let bindingData: OneWayData<'model, obj> =
-        { Get = getter >> box }
-      let wrappedBindingData = bindingData |> OneWayData |> BaseBindingData
+      let bindingData: OneWayData<'model, 'a> =
+        { Get = getter }
+      let bindingData2: OneWayData<'model, obj> =
+        { Get = bindingData.Get >> box }
+      let wrappedBindingData = bindingData2 |> OneWayData |> BaseBindingData
       let binding =
         Initialize(loggingArgs, name, getFunctionsForSubModelSelectedItem)
           .Recursive(initialModel, dispatch, (fun () -> currentModel), wrappedBindingData)
@@ -73,9 +422,11 @@ type [<AllowNullLiteral>] ViewModelBase<'model,'msg>
       
   let initializeSetBindingIfNew name (setter: 'model -> 'msg) =
     if setBindings.ContainsKey name |> not then
-      let bindingData: OneWayToSourceData<'model, 'msg, obj> =
-        { Set = (fun setter -> setter |> unbox<'model -> 'msg>) }
-      let wrappedBindingData = bindingData |> OneWayToSourceData |> BaseBindingData
+      let bindingData: OneWayToSourceData<'model, 'msg, 'model -> 'msg> =
+        { Set = (fun setter -> setter) }
+      let bindingData2: OneWayToSourceData<'model, 'msg, obj> =
+        { Set = unbox<'model -> 'msg> >> bindingData.Set }
+      let wrappedBindingData = bindingData2 |> OneWayToSourceData |> BaseBindingData
       let binding =
         Initialize(loggingArgs, name, getFunctionsForSubModelSelectedItem)
           .Recursive(initialModel, dispatch, (fun () -> currentModel), wrappedBindingData)
