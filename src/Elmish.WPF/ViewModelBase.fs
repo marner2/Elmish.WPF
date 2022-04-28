@@ -11,18 +11,148 @@ open System.Windows
 open FSharp.Quotations
 open FSharp.Quotations.Patterns
 
-type TypedBindingData<'model, 'msg, 'bindingModel, 'bindingMsg, 'bindingViewModel, 'id when 'id : equality> =
+type TypedBaseBindingData<'model, 'msg, 'bindingModel, 'bindingMsg, 'bindingViewModel, 'id when 'id : equality> =
   internal
   | TypedOneWayData of OneWayData<'model, 'bindingModel>
   | TypedOneWayToSourceData of OneWayToSourceData<'model, 'msg, 'bindingModel>
   | TypedOneWaySeqLazyData of OneWaySeqLazyData<'model, 'bindingModel, 'bindingViewModel, 'id>
-  | TypedTwoWayData of TwoWayData<'model, 'msg, 'bindingModel>
   | TypedCmdData of CmdData<'model, 'msg>
   | TypedSubModelData of SubModelData<'model, 'msg, 'bindingModel, 'bindingMsg, 'bindingViewModel>
   | TypedSubModelWinData of SubModelWinData<'model, 'msg, 'bindingModel, 'bindingMsg, 'bindingViewModel>
   | TypedSubModelSeqUnkeyedData of SubModelSeqUnkeyedData<'model, 'msg, 'bindingModel, 'bindingMsg, 'bindingViewModel>
   | TypedSubModelSeqKeyedData of SubModelSeqKeyedData<'model, 'msg, 'bindingModel, 'bindingMsg, 'bindingViewModel, 'id>
   | TypedSubModelSelectedItemData of SubModelSelectedItemData<'model, 'msg, 'id>
+
+and internal TypedValidationData<'model, 'msg, 'bindingModel, 'bindingMsg, 'bindingViewModel, 'id when 'id : equality> =
+  { BindingData: TypedBindingData<'model, 'msg, 'bindingModel, 'bindingMsg, 'bindingViewModel, 'id>
+    Validate: 'model -> string list }
+
+and internal TypedLazyData<'model, 'msg, 'bindingModel, 'bindingMsg, 'bindingViewModel, 'id when 'id : equality> =
+  { BindingData: TypedBindingData<'model, 'msg, 'bindingModel, 'bindingMsg, 'bindingViewModel, 'id>
+    Equals: 'model -> 'model -> bool }
+
+and internal TypedAlterMsgStreamData<'model, 'msg, 'bindingModel, 'bindingMsg, 'bindingViewModel, 'dispatchMsg, 'id when 'id : equality> =
+ { BindingData: TypedBindingData<'bindingModel, 'bindingMsg, obj, obj, 'bindingViewModel, 'id>
+   AlterMsgStream: ('dispatchMsg -> unit) -> 'bindingMsg -> unit
+   Get: 'model -> 'bindingModel
+   Set: 'dispatchMsg -> 'model -> 'msg }
+
+  member this.CreateFinalDispatch
+      (getCurrentModel: unit -> 'model,
+       dispatch: 'msg -> unit)
+       : 'bindingMsg -> unit =
+    let dispatch' (dMsg: 'dispatchMsg) = getCurrentModel () |> this.Set dMsg |> dispatch
+    this.AlterMsgStream dispatch'
+
+and TypedBindingData<'model, 'msg, 'bindingModel, 'bindingMsg, 'bindingViewModel, 'id when 'id : equality> =
+  internal
+  | TypedBaseBindingData of TypedBaseBindingData<'model, 'msg, 'bindingModel, 'bindingMsg, 'bindingViewModel, 'id>
+  | TypedCachingData of TypedBindingData<'model, 'msg, 'bindingModel, 'bindingMsg, 'bindingViewModel, 'id>
+  | TypedValidationData of TypedValidationData<'model, 'msg, 'bindingModel, 'bindingMsg, 'bindingViewModel, 'id>
+  | TypedLazyData of TypedLazyData<'model, 'msg, 'bindingModel, 'bindingMsg, 'bindingViewModel, 'id>
+  | TypedAlterMsgStreamData of TypedAlterMsgStreamData<'model, 'msg, 'bindingModel, 'bindingMsg, 'bindingViewModel, obj, 'id>
+
+module StaticBindings =
+
+  let get getter name =
+    let ret: OneWayData<'model, obj> = { Get = getter >> box }
+    ret |> OneWayData |> BaseBindingData
+
+  let set setter name =
+    let ret: OneWayToSourceData<'model, 'msg, 'a> = { Set = setter }
+    ret |> TypedOneWayToSourceData |> TypedBaseBindingData
+
+  let cmd name =
+    let ret: CmdData<'model, 'msg> =
+      { Exec = (fun _ _ -> ValueNone)
+        CanExec = (fun _ _ -> false)
+        AutoRequery = false }
+    ret |> TypedCmdData |> TypedBaseBindingData
+
+  let subModel name createViewModel =
+    let ret: SubModelData<'model, 'msg, 'model, 'msg, 'a> =
+      { GetModel = id >> ValueSome
+        CreateViewModel = createViewModel
+        UpdateViewModel = ignore
+        ToMsg = (fun _ msg -> msg) }
+    ret |> TypedSubModelData |> TypedBaseBindingData
+
+  let mapModel f =
+    let binaryHelper binary x m = binary x (f m)
+    let baseCase = function
+      | TypedOneWayData d -> TypedOneWayData {
+          Get = f >> d.Get
+        }
+      | TypedOneWayToSourceData d -> TypedOneWayToSourceData {
+          Set = binaryHelper d.Set
+        }
+      | TypedOneWaySeqLazyData d -> TypedOneWaySeqLazyData {
+          Get = f >> d.Get
+          Map = d.Map
+          CreateCollection = d.CreateCollection
+          Equals = d.Equals
+          GetId = d.GetId
+          ItemEquals = d.ItemEquals
+        }
+      | TypedCmdData d -> TypedCmdData {
+          Exec = binaryHelper d.Exec
+          CanExec = binaryHelper d.CanExec
+          AutoRequery = d.AutoRequery
+        }
+      | TypedSubModelData d -> TypedSubModelData {
+          GetModel = f >> d.GetModel
+          CreateViewModel = d.CreateViewModel
+          UpdateViewModel = d.UpdateViewModel
+          ToMsg = f >> d.ToMsg
+        }
+      | TypedSubModelWinData d -> TypedSubModelWinData {
+          GetState = f >> d.GetState
+          CreateViewModel = d.CreateViewModel
+          UpdateViewModel = d.UpdateViewModel
+          ToMsg = f >> d.ToMsg
+          GetWindow = f >> d.GetWindow
+          IsModal = d.IsModal
+          OnCloseRequested = f >> d.OnCloseRequested
+        }
+      | TypedSubModelSeqUnkeyedData d -> TypedSubModelSeqUnkeyedData {
+          GetModels = f >> d.GetModels
+          CreateViewModel = d.CreateViewModel
+          CreateCollection = d.CreateCollection
+          UpdateViewModel = d.UpdateViewModel
+          ToMsg = f >> d.ToMsg
+        }
+      | TypedSubModelSeqKeyedData d -> TypedSubModelSeqKeyedData {
+          GetSubModels = f >> d.GetSubModels
+          CreateViewModel = d.CreateViewModel
+          CreateCollection = d.CreateCollection
+          UpdateViewModel = d.UpdateViewModel
+          GetUnderlyingModel = d.GetUnderlyingModel
+          ToMsg = f >> d.ToMsg
+          GetId = d.GetId
+        }
+      | TypedSubModelSelectedItemData d -> TypedSubModelSelectedItemData {
+          Get = f >> d.Get
+          Set = binaryHelper d.Set
+          SubModelSeqBindingName = d.SubModelSeqBindingName
+        }
+    let rec recursiveCase = function
+      | TypedBaseBindingData d -> d |> baseCase |> TypedBaseBindingData
+      | TypedCachingData d -> d |> recursiveCase |> TypedCachingData
+      | TypedValidationData d -> TypedValidationData {
+          BindingData = recursiveCase d.BindingData
+          Validate = f >> d.Validate
+        }
+      | TypedLazyData d -> TypedLazyData {
+          BindingData = recursiveCase d.BindingData
+          Equals = fun a1 a2 -> d.Equals (f a1) (f a2)
+        }
+      | TypedAlterMsgStreamData d -> TypedAlterMsgStreamData {
+          BindingData = d.BindingData
+          AlterMsgStream = d.AlterMsgStream
+          Get = f >> d.Get
+          Set = binaryHelper d.Set
+        }
+    recursiveCase
 
 type ViewModelBaseHelper<'model, 'msg, 'viewModel when 'viewModel :> ViewModelBaseBase>(baseBase: 'viewModel, args: ViewModelArgs<'model, 'msg>) as this =
 
@@ -69,10 +199,10 @@ type ViewModelBaseHelper<'model, 'msg, 'viewModel when 'viewModel :> ViewModelBa
         AutoRequery = false }
     ret |> TypedCmdData
 
-  let subModelBinding name =
-    let ret: SubModelData<'model, 'msg, 'model, 'msg, unit> =
+  let subModelBinding name createViewModel =
+    let ret: SubModelData<'model, 'msg, 'model, 'msg, 'a> =
       { GetModel = id >> ValueSome
-        CreateViewModel = ignore
+        CreateViewModel = createViewModel
         UpdateViewModel = ignore
         ToMsg = (fun _ msg -> msg) }
     ret |> TypedSubModelData
@@ -746,12 +876,14 @@ module BindingBase =
     ///   to the <c>DataContext</c> of a <c>UserControl</c> or similar.
     /// </summary>
     /// <param name="create">Returns the static view model for the sub-model.</param>
-    let vopt (create: ViewModelArgs<'model, 'msg> -> #ViewModelBase<'model,'msg>)
+    let inline vopt (create: ViewModelArgs<'model, 'msg> -> 'viewModel)
         : string -> Binding<'model voption, 'msg> =
-      { GetModel = id
-        CreateViewModel = create
-        UpdateViewModel = fun (vm,m) -> vm.UpdateModel(m)
-        ToMsg = fun _ -> id }
+      let subModelData =
+        { GetModel = id
+          CreateViewModel = create
+          UpdateViewModel = fun (vm,m) -> (^viewModel: (member UpdateModel: ^model -> unit) vm, m)
+          ToMsg = fun _ -> id }
+      subModelData
       |> mapMinorTypes box box box unbox unbox unbox
       |> SubModelData
       |> BaseBindingData
@@ -762,7 +894,7 @@ module BindingBase =
     ///   to the <c>DataContext</c> of a <c>UserControl</c> or similar.
     /// </summary>
     /// <param name="create">Returns the static view model for the sub-model.</param>
-    let opt (create: ViewModelArgs<'model, 'msg> -> #ViewModelBase<'model,'msg>)
+    let inline opt (create: ViewModelArgs<'model, 'msg> -> 'viewModel)
         : string -> Binding<'model option, 'msg> =
       vopt create
       >> mapModel ValueOption.ofOption
@@ -772,7 +904,7 @@ module BindingBase =
     ///   to the <c>DataContext</c> of a <c>UserControl</c> or similar.
     /// </summary>
     /// <param name="create">Returns the static view model for the sub-model.</param>
-    let required (create: ViewModelArgs<'model, 'msg> -> #ViewModelBase<'model,'msg>)
+    let inline required (create: ViewModelArgs<'model, 'msg> -> 'viewModel)
         : string -> Binding<'model, 'msg> =
       vopt create
       >> mapModel ValueSome
@@ -784,11 +916,11 @@ module BindingBase =
     ///   to the <c>DataContext</c> of a <c>UserControl</c> or similar.
     /// </summary>
     /// <param name="create">Returns the static view model for the sub-model.</param>
-    let required (create: ViewModelArgs<'model, 'msg> -> #ViewModelBase<'model,'msg>)
+    let inline required (create: ViewModelArgs<'model, 'msg> -> 'viewModel)
         : string -> Binding<'model seq, int * 'msg> =
       BindingData.SubModelSeqUnkeyed.create
         create
-        (fun (vm,m) -> vm.UpdateModel(m))
+        (fun (vm,m) -> (^viewModel: (member UpdateModel: ^model -> unit) vm, m))
 
   module SubModelSeqKeyedBase =
 
@@ -798,10 +930,10 @@ module BindingBase =
     /// </summary>
     /// <param name="create">Returns the static view model for the sub-model.</param>
     /// <param name="getId">Returns the identifier for the model.</param>
-    let required (create: ViewModelArgs<'model, 'msg> -> #ViewModelBase<'model,'msg>) (getId: 'model -> 'id)
+    let inline required (create: ViewModelArgs<'model, 'msg> -> 'viewModel) (getId: 'model -> 'id)
         : string -> Binding<'model seq, 'id * 'msg> =
       BindingData.SubModelSeqKeyed.create
         create
-        (fun (vm,m) -> vm.UpdateModel(m))
-        (fun vm -> vm.CurrentModel)
+        (fun (vm,m) -> (^viewModel: (member UpdateModel: ^model -> unit) vm, m))
+        (fun vm -> (^viewModel: (member CurrentModel: ^model) vm))
         getId
