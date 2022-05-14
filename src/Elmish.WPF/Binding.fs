@@ -9,6 +9,8 @@ open Elmish
 
 module Bindings =
 
+  let boxVm (bindings: Binding<'b, 'msg, 'vm> list) = BindingData.Bindings.mapVm box unbox bindings
+
   /// Map the model of a list of bindings via a contravariant mapping.
   let mapModel (f: 'a -> 'b) (bindings: Binding<'b, 'msg, 'vm> list) = BindingData.Bindings.mapModel f bindings
 
@@ -21,6 +23,8 @@ module Bindings =
 
 
 module Binding =
+
+  let boxVm (binding: Binding<'b, 'msg, 'vm>) = BindingData.Binding.mapVm box unbox binding
 
   /// Map the model of a binding via a contravariant mapping.
   let mapModel (f: 'a -> 'b) (binding: Binding<'b, 'msg, 'vm>) = BindingData.Binding.mapModel f binding

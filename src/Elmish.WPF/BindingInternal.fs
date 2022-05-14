@@ -313,6 +313,86 @@ module internal BindingData =
 
   let mapMsg f = mapMsgWithModel (fun a _ -> f a)
 
+  
+
+  let mapVm (fOut: 'a -> 'b) (fIn: 'b -> 'a): BindingData<'model, 'msg, 'a> -> BindingData<'model, 'msg, 'b> =
+    let baseCase = function
+      | OneWayData d -> OneWayData {
+          Get = d.Get >> fOut
+        }
+      | OneWayToSourceData d -> OneWayToSourceData {
+          Set = fIn >> d.Set
+        }
+      | OneWaySeqLazyData d -> OneWaySeqLazyData {
+          Get = d.Get
+          Map = d.Map >> Seq.map fOut
+          CreateCollection = Seq.map fIn >> d.CreateCollection >> CollectionTarget.map fOut fIn
+          Equals = d.Equals
+          GetId = fIn >> d.GetId
+          ItemEquals = (fun a1 a2 -> d.ItemEquals (fIn a1) (fIn a2))
+        }
+      | TwoWayData d -> TwoWayData {
+          Get = d.Get >> fOut
+          Set = fIn >> d.Set
+        }
+      | CmdData d -> CmdData d
+      | SubModelData d -> SubModelData {
+          GetModel = d.GetModel
+          CreateViewModel = d.CreateViewModel >> fOut
+          UpdateViewModel = (fun (vm,m) -> d.UpdateViewModel (fIn vm, m))
+          ToMsg = d.ToMsg
+        }
+      | SubModelWinData d -> SubModelWinData {
+          GetState = d.GetState
+          CreateViewModel = d.CreateViewModel >> fOut
+          UpdateViewModel = (fun (vm,m) -> d.UpdateViewModel (fIn vm, m))
+          ToMsg = d.ToMsg
+          GetWindow = d.GetWindow
+          IsModal = d.IsModal
+          OnCloseRequested = d.OnCloseRequested
+        }
+      | SubModelSeqUnkeyedData d -> SubModelSeqUnkeyedData {
+          GetModels = d.GetModels
+          CreateViewModel = d.CreateViewModel >> fOut
+          CreateCollection = Seq.map fIn >> d.CreateCollection >> CollectionTarget.map fOut fIn
+          UpdateViewModel = (fun (vm,m) -> d.UpdateViewModel (fIn vm, m))
+          ToMsg = d.ToMsg
+        }
+      | SubModelSeqKeyedData d -> SubModelSeqKeyedData {
+          GetSubModels = d.GetSubModels
+          CreateViewModel = d.CreateViewModel >> fOut
+          CreateCollection = Seq.map fIn >> d.CreateCollection >> CollectionTarget.map fOut fIn
+          UpdateViewModel = (fun (vm,m) -> d.UpdateViewModel (fIn vm, m))
+          GetUnderlyingModel = fIn >> (fun vm -> vm |> d.GetUnderlyingModel)
+          ToMsg = d.ToMsg
+          GetId = d.GetId
+        }
+      | SubModelSelectedItemData d -> SubModelSelectedItemData {
+          Get = d.Get
+          Set = d.Set
+          SubModelSeqBindingName = d.SubModelSeqBindingName
+        }
+    let rec recursiveCase : BindingData<'model, 'msg, 'a> -> BindingData<'model, 'msg, 'b> = function
+      | BaseBindingData d -> d |> baseCase |> BaseBindingData
+      | CachingData d -> d |> recursiveCase |> CachingData
+      | ValidationData d -> ValidationData {
+          BindingData = recursiveCase d.BindingData
+          Validate = d.Validate
+        }
+      | LazyData d -> LazyData {
+          BindingData = recursiveCase d.BindingData
+          Equals = d.Equals
+        }
+      | AlterMsgStreamData d ->
+        let x = d.BindingData |> mapModel box |> mapMsg unbox |> recursiveCase
+        AlterMsgStreamData {
+          BindingData = failwith "hi"
+          AlterMsgStream = d.AlterMsgStream
+          Get = d.Get
+          Set = d.Set
+        }
+    recursiveCase
+
   let setMsgWithModel f = mapMsgWithModel (fun _ m -> f m)
   let setMsg msg = mapMsg (fun _ -> msg)
 
@@ -349,6 +429,7 @@ module internal BindingData =
       { Name = binding.Name
         Data = binding.Data |> f }
 
+    let mapVm fIn fOut = mapVm fIn fOut |> mapData
     let mapModel f = f |> mapModel |> mapData
     let mapMsgWithModel f = f |> mapMsgWithModel |> mapData
     let mapMsg f = f |> mapMsg |> mapData
@@ -365,6 +446,7 @@ module internal BindingData =
 
   module Bindings =
 
+    let mapVm fIn fOut = Binding.mapVm fIn fOut |> List.map
     let mapModel f = f |> Binding.mapModel |> List.map
     let mapMsgWithModel f = f |> Binding.mapMsgWithModel |> List.map
     let mapMsg f = f |> Binding.mapMsg |> List.map
