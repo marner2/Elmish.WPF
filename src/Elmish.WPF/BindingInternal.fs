@@ -313,10 +313,10 @@ module internal BindingData =
 
   let mapMsg f = mapMsgWithModel (fun a _ -> f a)
 
-  
+  module private VmMapperHelpers =
 
-  let mapVm (fOut: 'a -> 'b) (fIn: 'b -> 'a): BindingData<'model, 'msg, 'a> -> BindingData<'model, 'msg, 'b> =
-    let baseCase = function
+    let private baseCase fOut fIn =
+      function
       | OneWayData d -> OneWayData {
           Get = d.Get >> fOut
         }
@@ -372,26 +372,29 @@ module internal BindingData =
           Set = d.Set
           SubModelSeqBindingName = d.SubModelSeqBindingName
         }
-    let rec recursiveCase : BindingData<'model, 'msg, 'a> -> BindingData<'model, 'msg, 'b> = function
-      | BaseBindingData d -> d |> baseCase |> BaseBindingData
-      | CachingData d -> d |> recursiveCase |> CachingData
+    let rec recursiveCase<'model, 'msg, 'a, 'b> (fOut: 'a -> 'b) (fIn: 'b -> 'a) : BindingData<'model, 'msg, 'a> -> BindingData<'model, 'msg, 'b> =
+      function
+      | BaseBindingData d -> d |> baseCase fOut fIn |> BaseBindingData
+      | CachingData d -> d |> recursiveCase<'model, 'msg, 'a, 'b> fOut fIn |> CachingData
       | ValidationData d -> ValidationData {
-          BindingData = recursiveCase d.BindingData
+          BindingData = recursiveCase<'model, 'msg, 'a, 'b> fOut fIn d.BindingData
           Validate = d.Validate
         }
       | LazyData d -> LazyData {
-          BindingData = recursiveCase d.BindingData
+          BindingData = recursiveCase<'model, 'msg, 'a, 'b> fOut fIn d.BindingData
           Equals = d.Equals
         }
       | AlterMsgStreamData d ->
-        let x = d.BindingData |> mapModel box |> mapMsg unbox |> recursiveCase
+        let x = d.BindingData
         AlterMsgStreamData {
-          BindingData = failwith "hi"
+          BindingData = recursiveCase<obj, obj, 'a, 'b> fOut fIn x
           AlterMsgStream = d.AlterMsgStream
           Get = d.Get
           Set = d.Set
         }
-    recursiveCase
+    
+  let mapVm (fOut: 'a -> 'b) (fIn: 'b -> 'a): BindingData<'model, 'msg, 'a> -> BindingData<'model, 'msg, 'b> =
+    VmMapperHelpers.recursiveCase fOut fIn
 
   let setMsgWithModel f = mapMsgWithModel (fun _ m -> f m)
   let setMsg msg = mapMsg (fun _ -> msg)
