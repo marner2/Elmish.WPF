@@ -54,7 +54,7 @@ module CollectionTarget =
       Enumerate = ct.Enumerate >> Seq.map fOut
       GetCollection = ct.GetCollection }
 
-  let private mapCollection (fOut: 'aCollection0 -> 'aCollection1) (ct: CollectionTarget<'a, 'aCollection0>) : CollectionTarget<'a, 'aCollection1> =
+  let mapCollection (fOut: 'aCollection0 -> 'aCollection1) (ct: CollectionTarget<'a, 'aCollection0>) : CollectionTarget<'a, 'aCollection1> =
     { GetLength = ct.GetLength
       GetAt = ct.GetAt
       Append = ct.Append
