@@ -100,14 +100,14 @@ module Binding =
     /// a <c>null</c> value in the view.
     let opt<'a, 'msg> : string -> Binding<'a option, 'msg> =
       id<obj, 'msg>
-      >> mapModel BindingData.Option.box
+      >> mapModel Option.box
 
     /// Creates a one-way binding to an optional value. The binding
     /// automatically converts between a missing value in the model and
     /// a <c>null</c> value in the view.
     let vopt<'a, 'msg> : string -> Binding<'a voption, 'msg> =
       id<obj, 'msg>
-      >> mapModel BindingData.ValueOption.box
+      >> mapModel ValueOption.box
 
 
   module OneWayToSource =
@@ -123,14 +123,14 @@ module Binding =
     /// a <c>null</c> value in the view.
     let vopt<'model, 'a> : string -> Binding<'model, 'a voption> =
       id<'model, obj>
-      >> mapMsg BindingData.ValueOption.unbox
+      >> mapMsg ValueOption.unbox
 
     /// Creates a one-way-to-source binding to an optional value. The binding
     /// automatically converts between a missing value in the model and
     /// a <c>null</c> value in the view.
     let opt<'model, 'a> : string -> Binding<'model, 'a option> =
       id<'model, obj>
-      >> mapMsg BindingData.Option.unbox
+      >> mapMsg Option.unbox
 
 
   module TwoWay =
@@ -147,16 +147,16 @@ module Binding =
     /// a <c>null</c> value in the view.
     let vopt<'a> : string -> Binding<'a voption, 'a voption> =
       id<obj>
-      >> mapModel BindingData.ValueOption.box
-      >> mapMsg BindingData.ValueOption.unbox
+      >> mapModel ValueOption.box
+      >> mapMsg ValueOption.unbox
 
     /// Creates a one-way-to-source binding to an optional value. The binding
     /// automatically converts between a missing value in the model and
     /// a <c>null</c> value in the view.
     let opt<'a> : string -> Binding<'a option, 'a option> =
       id<obj>
-      >> mapModel BindingData.Option.box
-      >> mapMsg BindingData.Option.unbox
+      >> mapModel Option.box
+      >> mapMsg Option.unbox
 
 
   module SubModelSelectedItem =
@@ -202,7 +202,7 @@ module Binding =
       >> mapModel ValueOption.ofOption
       >> mapMsg ValueOption.toOption
 
-      
+
   module Cmd =
 
     let createWithParam exec canExec autoRequery =
@@ -286,7 +286,7 @@ module Binding =
       vopt
       >> mapModel ValueOption.ofOption
       >> mapMsg ValueOption.toOption
-      
+
   module SubModelWin =
     open BindingData.SubModelWin
 
