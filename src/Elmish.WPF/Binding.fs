@@ -254,6 +254,43 @@ module Binding =
       vopt bindings
       >> mapModel ValueSome
 
+  module SubModelT =
+
+    let opt
+      (createVm: ViewModelArgs<'bindingModel, 'msg> -> #IViewModel<'bindingModel, 'msg>)
+      : (string -> Binding<'bindingModel voption, 'msg>)
+      =
+      SubModel.create createVm IViewModel.updateModel
+      |> createBinding
+
+    let req
+      (createVm: ViewModelArgs<'bindingModel, 'msg> -> #IViewModel<'bindingModel, 'msg>)
+      : (string -> Binding<'bindingModel, 'msg>)
+      =
+      SubModel.create createVm IViewModel.updateModel
+      |> createBinding
+      >> mapModel ValueSome
+
+  module SubModelSeqUnkeyedT =
+
+    let id
+      (createVm: ViewModelArgs<'bindingModel, 'msg> -> #IViewModel<'bindingModel, 'msg>)
+      : (string -> Binding<'bindingModelCollection, int * 'msg>)
+      =
+      SubModelSeqUnkeyed.create createVm IViewModel.updateModel
+      |> createBinding
+
+  module SubModelSeqKeyedT =
+
+    let id
+      (createVm: ViewModelArgs<'bindingModel, 'msg> -> #IViewModel<'bindingModel, 'msg>)
+      (bmToId: 'bindingModel -> 'id)
+      (vmToId: #IViewModel<'bindingModel, 'msg> -> 'id)
+      : (string -> Binding<'bindingModelCollection, 'id * 'msg>)
+      =
+      SubModelSeqKeyed.create createVm IViewModel.updateModel bmToId vmToId
+      |> createBinding
+
 
   module SelectedIndex =
     /// Prebuilt binding intended for use with <code>Selector.SelectedIndex</code>.
