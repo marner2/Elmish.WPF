@@ -291,6 +291,16 @@ module Binding =
       SubModelSeqKeyed.create createVm IViewModel.updateModel bmToId vmToId
       |> createBinding
 
+  module SubModelWinT =
+
+    let id
+      (getState: 'model -> WindowState<'bindingModel>)
+      (createVM: ViewModelArgs<'bindingModel, 'bindingMsg> -> #IViewModel<'bindingModel, 'bindingMsg>)
+      (toMsg: 'model -> 'bindingMsg -> 'msg)
+      getWindow isModal onCloseRequested =
+      SubModelWin.create getState createVM IViewModel.updateModel toMsg getWindow isModal onCloseRequested
+      |> createBinding
+
 
   module SelectedIndex =
     /// Prebuilt binding intended for use with <code>Selector.SelectedIndex</code>.
