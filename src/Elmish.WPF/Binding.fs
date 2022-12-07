@@ -295,9 +295,8 @@ module Binding =
     let id
       (getState: 'model -> WindowState<'bindingModel>)
       (createVM: ViewModelArgs<'bindingModel, 'bindingMsg> -> #IViewModel<'bindingModel, 'bindingMsg>)
-      (toMsg: 'model -> 'bindingMsg -> 'msg)
       getWindow isModal onCloseRequested =
-      SubModelWin.create getState createVM IViewModel.updateModel toMsg getWindow isModal onCloseRequested
+      SubModelWin.create getState createVM IViewModel.updateModel Func2.id2 getWindow isModal onCloseRequested
       |> createBinding
 
 
