@@ -284,11 +284,10 @@ module Binding =
 
     let id
       (createVm: ViewModelArgs<'bindingModel, 'msg> -> #IViewModel<'bindingModel, 'msg>)
-      (bmToId: 'bindingModel -> 'id)
-      (vmToId: #IViewModel<'bindingModel, 'msg> -> 'id)
+      (getId: 'bindingModel -> 'id)
       : (string -> Binding<'bindingModelCollection, 'id * 'msg>)
       =
-      SubModelSeqKeyed.create createVm IViewModel.updateModel bmToId vmToId
+      SubModelSeqKeyed.create createVm IViewModel.updateModel getId (IViewModel.currentModel >> getId)
       |> createBinding
 
   module SubModelWinT =
