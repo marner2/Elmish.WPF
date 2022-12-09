@@ -40,6 +40,14 @@ module WpfProgram =
       PerformanceLogThreshold = 1 }
     |> mapVm box unbox
 
+  let private createWithVm (createVm: ViewModelArgs<'model, 'msg> -> #IViewModel<'model, 'msg>) program =
+    { ElmishProgram = program
+      CreateViewModel = createVm
+      UpdateViewModel = IViewModel.updateModel
+      LoggerFactory = NullLoggerFactory.Instance
+      ErrorHandler = fun _ _ -> ()
+      PerformanceLogThreshold = 1 }
+
 
   /// Creates a WpfProgram that does not use commands.
   let mkSimple
@@ -57,6 +65,23 @@ module WpfProgram =
       (bindings: unit -> Binding<'model, 'msg> list) =
     Program.mkProgram init update (fun _ _ -> ())
     |> createWithBindings bindings
+
+  /// Creates a WpfProgram that does not use commands.
+  let mkSimple2
+      (init: unit -> 'model)
+      (update: 'msg  -> 'model -> 'model)
+      (createVm: ViewModelArgs<'model, 'msg> -> #IViewModel<'model, 'msg>) =
+    Program.mkSimple init update (fun _ _ -> ())
+    |> createWithVm createVm
+
+
+  /// Creates a WpfProgram that uses commands
+  let mkProgram2
+      (init: unit -> 'model * Cmd<'msg>)
+      (update: 'msg  -> 'model -> 'model * Cmd<'msg>)
+      (createVm: ViewModelArgs<'model, 'msg> -> #IViewModel<'model, 'msg>) =
+    Program.mkProgram init update (fun _ _ -> ())
+    |> createWithVm createVm
 
 
   /// Starts an Elmish dispatch loop, setting the bindings as the DataContext for the
