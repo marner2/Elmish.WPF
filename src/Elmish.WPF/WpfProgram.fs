@@ -198,6 +198,25 @@ module WpfProgram =
       bindings
 
 
+  /// Same as mkProgram2, except that init and update don't return Cmd<'msg>
+  /// directly, but instead return a CmdMsg discriminated union that is converted
+  /// to Cmd<'msg> using toCmd. This means that the init and update functions
+  /// return only data, and thus are easier to unit test. The CmdMsg pattern is
+  /// general; this is just a trivial convenience function that automatically
+  /// converts CmdMsg to Cmd<'msg> for you in init and update.
+  let mkProgramWithCmdMsg2
+      (init: unit -> 'model * 'cmdMsg list)
+      (update: 'msg -> 'model -> 'model * 'cmdMsg list)
+      (createVm: ViewModelArgs<'model, 'msg> -> #IViewModel<'model, 'msg>)
+      (toCmd: 'cmdMsg -> Cmd<'msg>) =
+    let convert (model, cmdMsgs) =
+      model, (cmdMsgs |> List.map toCmd |> Cmd.batch)
+    mkProgram2
+      (init >> convert)
+      (fun msg model -> update msg model |> convert)
+      createVm
+
+
   /// Uses the specified ILoggerFactory for logging.
   let withLogger loggerFactory program =
     { program with LoggerFactory = loggerFactory }
