@@ -97,15 +97,15 @@ module Binding =
   module OneWayT =
 
     /// Elemental instance of a one-way binding.
-    let id<'a, 'msg> : string -> Binding<'a, 'msg, 'a> =
+    let id<'model, 'msg> : string -> Binding<'model, 'msg, 'model> =
       OneWay.id
       |> createBindingT
 
-    let opt<'a, 'msg> get : string -> Binding<'a, 'msg, 'a> =
+    let opt<'model, 'msg, 'a> get : string -> Binding<'model, 'msg, 'a> =
       OneWay.opt get
       |> createBindingT
 
-    let req<'a, 'msg> get : string -> Binding<'a, 'msg, 'a> =
+    let req<'model, 'msg, 'a> get : string -> Binding<'model, 'msg, 'a> =
       OneWay.opt (get >> ValueSome)
       |> createBindingT
 
