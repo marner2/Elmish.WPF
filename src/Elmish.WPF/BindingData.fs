@@ -19,7 +19,7 @@ module Helper =
 
 
 type OneWayData<'model, 'a> =
-  { Get: 'model -> 'a }
+  { Get: 'model -> 'a voption }
 
 
 type OneWayToSourceData<'model, 'msg, 'a> =
@@ -165,7 +165,7 @@ module BindingData =
     let baseCase (fOut: 't0 -> 't1) (fIn: 't1 -> 't0) =
       function
       | OneWayData d -> OneWayData {
-          Get = d.Get >> fOut
+          Get = d.Get >> ValueOption.map fOut
         }
       | OneWayToSourceData d -> OneWayToSourceData {
           Set = fIn >> d.Set
@@ -453,7 +453,7 @@ module BindingData =
   module OneWay =
 
     let id<'a, 'msg> : BindingData<'a, 'msg, 'a> =
-      { Get = id }
+      { Get = ValueSome }
       |> OneWayData
       |> BaseBindingData
 

@@ -217,7 +217,7 @@ and VmBinding<'model, 'msg, 't> =
 module internal MapOutputType =
   let private baseCase (fOut: 'a -> 'b) (fIn: 'b -> 'a) (data: BaseVmBinding<'model, 'msg, 'a>) : BaseVmBinding<'model, 'msg, 'b> =
     match data with
-    | OneWay b -> OneWay { OneWayData = { Get = b.OneWayData.Get >> fOut } }
+    | OneWay b -> OneWay { OneWayData = { Get = b.OneWayData.Get >> ValueOption.map fOut } }
     | OneWayToSource b -> OneWayToSource { Set = fIn >> b.Set }
     | Cmd b -> Cmd b
     | TwoWay b -> TwoWay { Get = b.Get >> fOut; Set = fIn >> b.Set }
@@ -264,7 +264,7 @@ module internal MapOutputType =
         Vms = b.Vms |> CollectionTarget.mapCollection fOut
         GetCurrentModel = b.GetCurrentModel }
     | SubModelSeqKeyed b -> SubModelSeqKeyed {
-        SubModelSeqKeyedData = { 
+        SubModelSeqKeyedData = {
           GetSubModels = b.SubModelSeqKeyedData.GetSubModels
           CreateViewModel = b.SubModelSeqKeyedData.CreateViewModel
           CreateCollection = b.SubModelSeqKeyedData.CreateCollection >> CollectionTarget.mapCollection fOut
@@ -744,7 +744,7 @@ type Get<'t>(nameChain: string) =
 
   member _.Base (model: 'model, binding: BaseVmBinding<'model, 'msg, 't>) =
     match binding with
-    | OneWay { OneWayData = d } -> d.Get model |> Ok
+    | OneWay { OneWayData = d } -> d.Get model |> ValueOption.toNull |> Result.mapError GetError.ToNullError
     | TwoWay b -> b.Get model |> Ok
     | OneWayToSource _ -> GetError.OneWayToSource |> Error
     | OneWaySeq { Values = vals } -> vals.GetCollection () |> Ok
