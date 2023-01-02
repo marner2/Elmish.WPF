@@ -2974,6 +2974,25 @@ module subModelSelectedItem =
       }
 
 
+module OneWayT =
+
+  type BoolVOptionViewModel(args) =
+    inherit ViewModelBase<bool voption, bool voption>(args)
+
+    member _.Value =
+      base.Get
+        ()
+        (Binding.OneWayT.opt id)
+
+  [<Fact>]
+  let ``boolean value option does not throw exception on Get`` () =
+    Property.check <| property {
+      let! model = GenX.auto<bool voption>
+      let viewModel = BoolVOptionViewModel(ViewModelArgs.simple model)
+      viewModel.Value |> ignore
+    }
+
+
 module CmdT =
 
   [<Fact>]
