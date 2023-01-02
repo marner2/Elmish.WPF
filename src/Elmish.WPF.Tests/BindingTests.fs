@@ -1759,6 +1759,19 @@ module cmdParam =
 
 
     [<Fact>]
+    let ``final exec returns original value wrapped in ValueSome (static)`` () =
+      Property.check <| property {
+        let! m = GenX.auto<int>
+        let! p = GenX.auto<string>
+
+        let exec (p: obj) = string p
+        let d = Binding.CmdT.paramAlways exec |> getCmdData
+
+        test <@ d.Exec (box p) m = (exec p |> ValueSome) @>
+      }
+
+
+    [<Fact>]
     let ``canExec always returns true`` () =
       Property.check <| property {
         let! m = GenX.auto<int>
