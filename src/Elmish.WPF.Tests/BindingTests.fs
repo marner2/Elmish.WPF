@@ -128,7 +128,7 @@ module oneWayOpt =
     let ``sets the correct binding name`` () =
       Property.check <| property {
         let! bindingName = GenX.auto<string>
-        let binding = bindingName |> Binding.oneWayOpt((fail: _ -> _ voption))
+        let binding = bindingName |> Binding.oneWayOpt(fail: _ -> _ voption)
         test <@ binding.Name = bindingName @>
       }
 
@@ -1889,7 +1889,7 @@ module cmdParamIf =
     [<Fact>]
     let ``final autoRequery defaults to false`` () =
       Property.check <| property {
-        let d = Binding.cmdParamIf((fail2: _ -> _ -> _ voption)) |> getCmdData
+        let d = Binding.cmdParamIf(fail2: _ -> _ -> _ voption) |> getCmdData
         test <@ d.AutoRequery = false @>
       }
 
@@ -1958,7 +1958,7 @@ module cmdParamIf =
     [<Fact>]
     let ``final autoRequery defaults to false`` () =
       Property.check <| property {
-        let d = Binding.cmdParamIf((fail2: _ -> _ -> _ option)) |> getCmdData
+        let d = Binding.cmdParamIf(fail2: _ -> _ -> _ option) |> getCmdData
         test <@ d.AutoRequery = false @>
       }
 
@@ -2030,7 +2030,7 @@ module cmdParamIf =
     [<Fact>]
     let ``final autoRequery defaults to false`` () =
       Property.check <| property {
-        let d = Binding.cmdParamIf((fail2: _ -> _ -> Result<_,_>)) |> getCmdData
+        let d = Binding.cmdParamIf(fail2: _ -> _ -> Result<_,_>) |> getCmdData
         test <@ d.AutoRequery = false @>
       }
 
@@ -2154,7 +2154,7 @@ module cmdParamIf =
     [<Fact>]
     let ``final autoRequery defaults to false`` () =
       Property.check <| property {
-        let d = Binding.cmdParamIf((fail: _ -> _ voption)) |> getCmdData
+        let d = Binding.cmdParamIf(fail: _ -> _ voption) |> getCmdData
         test <@ d.AutoRequery = false @>
       }
 
@@ -2223,7 +2223,7 @@ module cmdParamIf =
     [<Fact>]
     let ``final autoRequery defaults to false`` () =
       Property.check <| property {
-        let d = Binding.cmdParamIf((fail: _ -> _ option)) |> getCmdData
+        let d = Binding.cmdParamIf(fail: _ -> _ option) |> getCmdData
         test <@ d.AutoRequery = false @>
       }
 
@@ -2295,7 +2295,7 @@ module cmdParamIf =
     [<Fact>]
     let ``final autoRequery defaults to false`` () =
       Property.check <| property {
-        let d = Binding.cmdParamIf((fail: _ -> Result<_,_>)) |> getCmdData
+        let d = Binding.cmdParamIf(fail: _ -> Result<_,_>) |> getCmdData
         test <@ d.AutoRequery = false @>
       }
 
