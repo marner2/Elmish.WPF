@@ -86,7 +86,7 @@ module oneWay =
       let get = string<int>
       let d = Binding.oneWay(get) |> getOneWayData
 
-      test <@ d.Get x |> ValueOption.get |> unbox = get x @>
+      test <@ d.Get x |> unbox = get x @>
     }
 
 
@@ -104,7 +104,7 @@ module oneWayOpt =
         let get = string >> Some
         let d = Binding.oneWayOpt(get) |> getOneWayData
 
-        test <@ d.Get x |> ValueOption.get |> unbox = (get x).Value @>
+        test <@ d.Get x |> unbox = (get x).Value @>
       }
 
 
@@ -116,7 +116,7 @@ module oneWayOpt =
         let get _ = None
         let d = Binding.oneWayOpt(get) |> getOneWayData
 
-        test <@ isNull (d.Get x).Value @>
+        test <@ isNull (d.Get x) @>
       }
 
 
@@ -141,7 +141,7 @@ module oneWayOpt =
         let get = string >> ValueSome
         let d = Binding.oneWayOpt(get) |> getOneWayData
 
-        test <@ d.Get x |> ValueOption.get |> unbox = (get x).Value @>
+        test <@ d.Get x |> unbox = (get x).Value @>
       }
 
 
@@ -153,7 +153,7 @@ module oneWayOpt =
         let get _ = ValueNone
         let d = Binding.oneWayOpt(get) |> getOneWayData
 
-        test <@ isNull (d.Get x).Value @>
+        test <@ isNull (d.Get x) @>
       }
 
 
