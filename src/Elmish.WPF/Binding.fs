@@ -149,7 +149,7 @@ module Binding =
     ///   Creates a <c>Command</c> binding that dispatches the specified message.
     /// </summary>
     /// <param name="canExec">Indicates whether the command can execute.</param>
-    /// <param name="exec">Returns the message to dispatch.</param>
+    /// <param name="msg">The message to dispatch.</param>
     let set
         canExec
         (msg: 'msg)
@@ -171,7 +171,7 @@ module Binding =
     ///   Creates a <c>Command</c> binding that dispatches the specified message
     ///   and always executes.
     /// </summary>
-    /// <param name="exec">Returns the message to dispatch.</param>
+    /// <param name="msg">The message to dispatch.</param>
     let setAlways
         (msg: 'msg)
         : string -> Binding<'model, 'msg, ICommand> =
