@@ -452,12 +452,10 @@ module BindingData =
 
   module OneWay =
 
-    let opt<'a, 'msg> get : BindingData<'a, 'msg, 'a> =
-      { Get = get }
+    let id<'a, 'msg> : BindingData<'a, 'msg, 'a> =
+      { Get = ValueSome }
       |> OneWayData
       |> BaseBindingData
-
-    let id<'a, 'msg> = opt<'a, 'msg> ValueSome
 
     let private mapFunctions
         mGet
