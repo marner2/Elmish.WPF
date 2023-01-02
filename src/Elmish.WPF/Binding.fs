@@ -177,6 +177,23 @@ module Binding =
         : string -> Binding<'model, 'msg, ICommand> =
       set (fun _ -> true) msg
 
+    let param
+        canExec
+        (exec: obj -> 'msg)
+        : string -> Binding<'model, 'msg, ICommand> =
+      Cmd.createWithParam
+        (fun p _ -> ValueSome p)
+        (fun _ m -> m |> canExec)
+        false
+      |> createBindingT
+      >> mapMsgWithModel (fun param _ -> param |> exec)
+      >> addLazy (fun m1 m2 -> canExec m1 = canExec m2)
+
+    let paramAlways
+        (exec: obj -> 'msg)
+        : string -> Binding<'model, 'msg, ICommand> =
+      param (fun _ -> true) exec
+
   module OneWay =
 
     /// Elemental instance of a one-way binding.
