@@ -177,6 +177,12 @@ module Binding =
         : string -> Binding<'model, 'msg, ICommand> =
       set (fun _ -> true) msg
 
+    /// <summary>
+    ///   Creates a <c>Command</c> binding that depends only on the
+    ///   <c>CommandParameter</c> (not the model).
+    /// </summary>
+    /// <param name="canExec">Indicates whether the command can execute.</param>
+    /// <param name="exec">Returns the message to dispatch.</param>
     let param
         canExec
         (exec: obj -> 'msg)
@@ -189,6 +195,11 @@ module Binding =
       >> mapMsgWithModel (fun param _ -> param |> exec)
       >> addLazy (fun m1 m2 -> canExec m1 = canExec m2)
 
+    /// <summary>
+    ///   Creates a <c>Command</c> binding that depends only on the
+    ///   <c>CommandParameter</c> (not the model) and always executes.
+    /// </summary>
+    /// <param name="exec">Returns the message to dispatch.</param>
     let paramAlways
         (exec: obj -> 'msg)
         : string -> Binding<'model, 'msg, ICommand> =
