@@ -101,6 +101,10 @@ module Binding =
       OneWay.id
       |> createBindingT
 
+    let opt<'a, 'msg> get : string -> Binding<'a, 'msg, 'a> =
+      OneWay.opt get
+      |> createBindingT
+
   module OneWayToSourceT =
 
     /// Elemental instance of a one-way-to-source binding.
