@@ -92,7 +92,7 @@ module Binding =
   let alterMsgStream (alteration: ('b -> unit) -> 'a -> unit) (binding: Binding<'model, 'a, 't>) : Binding<'model, 'b, 't> =
     binding
     |> mapData (alterMsgStream alteration)
-    
+
 
   module OneWayT =
 
@@ -107,14 +107,14 @@ module Binding =
     let id<'model, 'a> : string -> Binding<'model, 'a, 'a> =
       OneWayToSource.id
       |> createBindingT
-      
+
   module CmdT =
 
     /// <summary>
     ///   Elemental instance of a <c>Command</c> binding.
     ///   Creates a <c>Command</c> binding that only passes the <c>CommandParameter</c>)
     /// </summary>
-    /// <param name="uiBoundCmdParam">
+    /// <param name="autoRequery">
     ///   If <c>true</c>, <c>CanExecuteChanged</c> will trigger every time WPF's
     ///   <c>CommandManager</c>
     ///   detects UI changes that could potentially influence the command's
@@ -123,12 +123,12 @@ module Binding =
     ///   to another UI property.
     /// </param>
     /// <param name="canExec">Indicates whether the command can execute.</param>
-    let id<'model> uiBoundCmdParam canExec
+    let id<'model> autoRequery canExec
         : string -> Binding<'model, obj, ICommand> =
       Cmd.createWithParam
         (fun p _ -> ValueSome p)
         canExec
-        uiBoundCmdParam
+        autoRequery
       |> createBindingT
 
     /// <summary>
