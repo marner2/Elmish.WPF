@@ -2993,6 +2993,22 @@ module CmdT =
       }
 
 
+  module paramModelAlways =
+
+
+    [<Fact>]
+    let ``final exec returns original value wrapped in ValueSome`` () =
+      Property.check <| property {
+        let! m = GenX.auto<int>
+        let! p = GenX.auto<string>
+
+        let exec (p: obj) (m: int) = (string p, m)
+        let d = Binding.CmdT.paramModelAlways exec |> getCmdData
+
+        test <@ d.Exec (box p) m = (exec p m |> ValueSome) @>
+      }
+
+
 
 module sorting =
 
