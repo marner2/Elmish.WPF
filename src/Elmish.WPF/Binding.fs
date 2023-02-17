@@ -412,7 +412,7 @@ module Binding =
       (createVm: ViewModelArgs<'bindingModel, 'msg> -> #seq<#IViewModel<'bindingModel, 'msg>>)
       : (string -> Binding<'bindingModel, 'msg, #seq<#IViewModel<'bindingModel, 'msg>>>)
       =
-      SubModel.create createVm (fun (vms, m) -> vms |> Seq.map (fun vm -> vm, m) |> Seq.map IViewModel.updateModel |> ignore)
+      SubModel.create createVm (fun (vms, m) -> vms |> Seq.map (fun vm -> vm, m) |> Seq.iter IViewModel.updateModel)
       |> createBindingT
       >> mapModel ValueSome
 
