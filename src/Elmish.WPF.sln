@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.28803.352
+# Visual Studio Version 17
+VisualStudioVersion = 17.7.34009.444
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Samples", "Samples", "{BBAFEB1E-93C0-4C7E-8E0A-026BB05C88EC}"
 EndProject
@@ -60,9 +60,9 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{51DF5F61-CE23-4BB5-A1D6-8421974B760B}"
 	ProjectSection(SolutionItems) = preProject
 		..\README.md = ..\README.md
+		..\REFERENCE.md = ..\REFERENCE.md
 		..\RELEASE_NOTES.md = ..\RELEASE_NOTES.md
 		..\TUTORIAL.md = ..\TUTORIAL.md
-		..\REFERENCE.md = ..\REFERENCE.md
 	EndProjectSection
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Sticky.Core", "Samples\Sticky.Core\Sticky.Core.fsproj", "{F251BEA3-6AD1-4C14-9F3D-87FCFA4292EB}"
@@ -77,7 +77,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Multiselect", "Samples\Mult
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Multiselect.Core", "Samples\Multiselect.Core\Multiselect.Core.fsproj", "{DFF15AD9-337E-4301-9A05-5CFA147C457E}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Elmish.WPF.Benchmarks", "Elmish.WPF.Benchmarks\Elmish.WPF.Benchmarks.fsproj", "{240E981A-BEEF-41A1-A214-135E52DCA956}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Elmish.WPF.Benchmarks", "Elmish.WPF.Benchmarks\Elmish.WPF.Benchmarks.fsproj", "{240E981A-BEEF-41A1-A214-135E52DCA956}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SubModelStatic", "Samples\SubModelStatic\SubModelStatic.csproj", "{3F50DF04-DE1F-4368-9584-E318FE41AC2C}"
 EndProject
@@ -86,6 +86,8 @@ EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Threading.Core", "Samples\Threading.Core\Threading.Core.fsproj", "{B5029D1D-73A0-4C08-A4A0-1BF52CE919C4}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Threading", "Samples\Threading\Threading.csproj", "{36565661-EA23-4965-97A0-2F4FDA0B4B67}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SingleCounter.MAUI", "Samples\SingleCounter.MAUI\SingleCounter.MAUI.csproj", "{B4A41055-002B-4767-B231-88D43F28B5E8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -241,6 +243,12 @@ Global
 		{36565661-EA23-4965-97A0-2F4FDA0B4B67}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{36565661-EA23-4965-97A0-2F4FDA0B4B67}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{36565661-EA23-4965-97A0-2F4FDA0B4B67}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B4A41055-002B-4767-B231-88D43F28B5E8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B4A41055-002B-4767-B231-88D43F28B5E8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B4A41055-002B-4767-B231-88D43F28B5E8}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
+		{B4A41055-002B-4767-B231-88D43F28B5E8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B4A41055-002B-4767-B231-88D43F28B5E8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B4A41055-002B-4767-B231-88D43F28B5E8}.Release|Any CPU.Deploy.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -280,6 +288,7 @@ Global
 		{F0064852-8E7F-437B-A414-72EB0FA46711} = {BBAFEB1E-93C0-4C7E-8E0A-026BB05C88EC}
 		{B5029D1D-73A0-4C08-A4A0-1BF52CE919C4} = {BBAFEB1E-93C0-4C7E-8E0A-026BB05C88EC}
 		{36565661-EA23-4965-97A0-2F4FDA0B4B67} = {BBAFEB1E-93C0-4C7E-8E0A-026BB05C88EC}
+		{B4A41055-002B-4767-B231-88D43F28B5E8} = {BBAFEB1E-93C0-4C7E-8E0A-026BB05C88EC}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {3125D461-08F4-4071-AAE5-1038EF84A360}
